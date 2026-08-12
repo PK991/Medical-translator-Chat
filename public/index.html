@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LinguaRoom</title><style>
+:root{--navy:#0b2940;--pale:#eef5ff;--line:#dfe6ee;--muted:#7b8794}*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Arial;color:#17212b;background:#fff}
+header{background:var(--navy);color:#fff;padding:22px 5%;font-weight:800;font-size:22px}.wrap{max-width:720px;margin:auto;padding:28px 20px}.card{border:1px solid var(--line);border-radius:20px;padding:18px;margin:14px 0}.btn{border:0;border-radius:14px;padding:14px 18px;font-weight:750;font-size:16px;cursor:pointer}.primary{background:var(--navy);color:#fff}.secondary{background:var(--pale);color:var(--navy)}
+input,select{width:100%;padding:14px;border:1px solid var(--line);border-radius:13px;font-size:16px;margin:6px 0 14px;background:#fff}.row{display:flex;gap:10px}.row>*{flex:1}.hidden{display:none}
+.msgs{height:58vh;overflow:auto;padding-bottom:90px}.msg{max-width:88%;background:#f3f6f9;border-radius:18px;padding:15px;margin:12px 0}.mine{margin-left:auto;background:#eaf3ff}.sender{font-weight:800;margin-bottom:8px}.lang{font-size:12px;color:#1767aa;font-weight:800;margin-top:10px}.txt{font-size:17px;line-height:1.45}.trans{border-top:1px solid var(--line);padding-top:9px;margin-top:9px}.composer{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 0;display:flex;gap:8px}.composer input{margin:0}.status{color:var(--muted);font-size:13px}.navrow{display:flex;gap:8px;align-items:center;margin-bottom:16px}.iconbtn{border:0;background:var(--pale);color:var(--navy);border-radius:12px;min-width:44px;height:44px;font-size:19px;font-weight:800;cursor:pointer}.roomcard{cursor:pointer}.translationbar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f7f9fc;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:12px 0}.toprow{display:flex;align-items:center;justify-content:space-between;gap:10px}.error{background:#fff0f0;color:#9b1c1c;padding:10px;border-radius:10px;margin:10px 0}
+</style></head><body><header>LinguaRoom</header><main class="wrap">
+<section id="home"><h1>Chat without language barriers.</h1><p class="status">Real translation MVP</p>
+<button class="btn primary" onclick="show('create')">Create a Room</button> <button class="btn secondary" onclick="show('join')">Join a Room</button><div id="recentSection" class="hidden" style="margin-top:28px"><h2>Recent Rooms</h2><div id="recentRooms"></div></div></section>
+
+<section id="create" class="hidden"><div class="navrow"><button class="iconbtn" onclick="goHome()">⌂</button></div><h2>Create New Room</h2><label>Room name</label><input id="roomName" value="Patient Consultation">
+<label>Your language</label><select id="src"></select><label>Second language</label><select id="second"></select>
+<label>Third language (optional)</label><select id="third"></select><button class="btn primary" onclick="createRoom()">Create Room</button></section>
+
+<section id="join" class="hidden"><div class="navrow"><button class="iconbtn" onclick="goHome()">⌂</button></div><h2>Join a Room</h2><label>Room ID</label><input id="joinId" placeholder="839-521"><label>Your name</label><input id="joinName" placeholder="Participant">
+<button class="btn primary" onclick="joinRoom()">Request to Join</button><div id="joinStatus" class="status"></div></section>
+
+<section id="created" class="hidden"><div class="navrow"><button class="iconbtn" onclick="goHome()">⌂</button></div><h2>Room created</h2><div class="card"><div id="createdName"></div><h1 id="createdId"></h1>
+<div class="row"><button class="btn secondary" onclick="copyId()">Copy ID</button><button class="btn secondary" onclick="shareRoom()">Share link</button></div></div>
+<button class="btn primary" onclick="openRoom()">Open Chat Room</button></section>
+
+<section id="chat" class="hidden"><div class="navrow"><button class="iconbtn" onclick="goBack()">←</button><button class="iconbtn" onclick="goHome()">⌂</button></div><div class="toprow"><div><h2 id="chatName" style="margin-bottom:2px"></h2><div id="chatMeta" class="status"></div></div>
+<button class="btn secondary" onclick="shareRoom()">Share</button></div><div class="translationbar"><div><div class="status">Translation</div><b id="activeTranslation"></b></div><button class="btn secondary" onclick="changeLanguages()">Change</button></div>
+<div id="ownerPanel" class="card hidden"><b>Join requests</b><div id="requests"></div></div>
+<div id="error"></div><div id="messages" class="msgs"></div>
+<div class="composer"><input id="message" autocomplete="off" placeholder="Type a message..." onkeydown="if(event.key==='Enter')send()"><button class="btn primary" onclick="send()">➤</button></div></section>
+</main><script>
+const LANGS=["English","Thai","Arabic","Turkish","Bengali","Burmese","Chinese"];
+let state={roomId:null,ownerToken:null,senderName:"You",isOwner:false,src:"English",second:"Thai",third:"None"};
+function fill(){for(const id of["src","second","third"]){const e=document.getElementById(id);e.innerHTML=(id==="third"?'<option>None</option>':'')+LANGS.map(x=>`<option>${x}</option>`).join("")}second.value="Thai"}
+fill();
+function show(id){document.querySelectorAll("main section").forEach(x=>x.classList.add("hidden"));document.getElementById(id).classList.remove("hidden")}
+async function createRoom(){state.src=src.value;state.second=second.value;state.third=third.value;const r=await api("/api/rooms",{method:"POST",body:JSON.stringify({name:roomName.value,sourceLanguage:state.src,secondLanguage:state.second,thirdLanguage:state.third})});state.roomId=r.roomId;state.ownerToken=r.ownerToken;state.isOwner=true;createdName.textContent=r.roomName;createdId.textContent=r.roomId;show("created")}
+async function joinRoom(){const r=await api(`/api/rooms/${joinId.value.trim()}/join`,{method:"POST",body:JSON.stringify({name:joinName.value})});state.roomId=joinId.value.trim();state.senderName=joinName.value||"Participant";state.participantToken=r.participantToken;joinStatus.textContent="Waiting for owner approval…";setInterval(checkJoin,1500)}
+async function checkJoin(){if(!state.roomId)return;const r=await api(`/api/rooms/${state.roomId}`);const q=r.requests.find(x=>x.participantToken===state.participantToken);if(q?.status==="approved"){state.src=r.languages.sourceLanguage;state.second=r.languages.secondLanguage;state.third=r.languages.thirdLanguage;openRoom()}}
+async function openRoom(){show("chat");updateTranslationLabel();await refresh();rememberRoom(chatName.textContent);setInterval(refresh,1500)}
+async function refresh(){if(!state.roomId)return;const r=await api(`/api/rooms/${state.roomId}`);chatName.textContent=r.name;chatMeta.textContent=`Room ${r.id} · ${r.participants.length} participant(s) · ${r.languages.sourceLanguage} → ${r.languages.secondLanguage}${r.languages.thirdLanguage!=="None"?" + "+r.languages.thirdLanguage:""}`;renderMessages(r.messages);if(state.isOwner){ownerPanel.classList.remove("hidden");requests.innerHTML=r.requests.filter(x=>x.status==="pending").map(x=>`<div class="toprow" style="margin-top:10px"><span>${esc(x.name)}</span><button class="btn secondary" onclick="approve('${x.requestId}')">Approve</button></div>`).join("")||'<div class="status">No pending requests</div>'}}
+
+function goHome(){show("home");renderRecentRooms()}
+function goBack(){goHome()}
+function recentRooms(){try{return JSON.parse(localStorage.getItem("linguaroom_recent")||"[]")}catch(e){return []}}
+function rememberRoom(name){
+  if(!state.roomId)return;
+  let a=recentRooms().filter(x=>x.id!==state.roomId);
+  a.unshift({id:state.roomId,name:name||state.roomId,ownerToken:state.ownerToken,isOwner:state.isOwner,senderName:state.senderName,src:state.src,second:state.second,third:state.third});
+  localStorage.setItem("linguaroom_recent",JSON.stringify(a.slice(0,10)));
+}
+function renderRecentRooms(){
+  const a=recentRooms(); recentSection.classList.toggle("hidden",!a.length);
+  recentRooms.innerHTML=a.map(r=>`<div class="card roomcard"><b>${esc(r.name)}</b><div class="status">Room ${esc(r.id)} · ${esc(r.src)} → ${esc(r.second)}${r.third!=="None"?" + "+esc(r.third):""}</div><button class="btn secondary" style="margin-top:10px" onclick="reopen('${r.id}')">Open room →</button></div>`).join("");
+}
+async function reopen(roomId){
+  const r=recentRooms().find(x=>x.id===roomId); if(!r)return;
+  Object.assign(state,{roomId:r.id,ownerToken:r.ownerToken||null,isOwner:!!r.isOwner,senderName:r.senderName||"You",src:r.src||"English",second:r.second||"Thai",third:r.third||"None"});
+  try{await openRoom()}catch(e){alert("This room is no longer available on the server.")}
+}
+function updateTranslationLabel(){if(window.activeTranslation)activeTranslation.textContent=`${state.src} → ${state.second}${state.third!=="None"?" + "+state.third:""}`}
+function changeLanguages(){
+  const src=prompt("Source language:",state.src); if(!src)return;
+  const second=prompt("Second language:",state.second); if(!second)return;
+  const third=prompt("Third language (or None):",state.third)||"None";
+  if(!LANGS.includes(src)||!LANGS.includes(second)||(third!=="None"&&!LANGS.includes(third))){alert("Please use: "+LANGS.join(", ")+" or None.");return}
+  if(src===second||third===src||third===second){alert("Please select different languages.");return}
+  state.src=src;state.second=second;state.third=third;updateTranslationLabel();rememberRoom(chatName.textContent);
+}
+
+async function approve(requestId){await api(`/api/rooms/${state.roomId}/approve`,{method:"POST",body:JSON.stringify({ownerToken:state.ownerToken,requestId})});refresh()}
+function renderMessages(ms){messages.innerHTML=ms.map(m=>`<div class="msg ${m.senderName===state.senderName?"mine":""}"><div class="sender">${esc(m.senderName)}</div><div class="lang">Original · ${esc(m.sourceLanguage)}</div><div class="txt">${esc(m.text)}</div>${Object.entries(m.translations).map(([l,t])=>`<div class="trans"><div class="lang">${esc(l)}</div><div class="txt">${esc(t)}</div></div>`).join("")}</div>`).join("");messages.scrollTop=messages.scrollHeight}
+async function send(){const text=message.value.trim();if(!text)return;message.value="";error.innerHTML="";try{await api(`/api/rooms/${state.roomId}/messages`,{method:"POST",body:JSON.stringify({senderName:state.senderName,text,sourceLanguage:state.src,secondLanguage:state.second,thirdLanguage:state.third})});await refresh()}catch(e){error.innerHTML=`<div class="error">${esc(e.message)}</div>`}}
+function link(){return `${location.origin}${location.pathname}?room=${encodeURIComponent(state.roomId)}`}
+function copyId(){navigator.clipboard?.writeText(state.roomId)}
+async function shareRoom(){const url=link();if(navigator.share)try{return await navigator.share({title:"LinguaRoom",text:`Join room ${state.roomId}`,url})}catch(e){}navigator.clipboard?.writeText(url);alert("Join link copied")}
+async function api(url,opt={}){opt.headers={"Content-Type":"application/json",...(opt.headers||{})};const r=await fetch(url,opt);const j=await r.json();if(!r.ok)throw new Error(j.error||"Request failed");return j}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+renderRecentRooms();const q=new URLSearchParams(location.search).get("room");if(q){joinId.value=q;show("join")}
+</script></body></html>
