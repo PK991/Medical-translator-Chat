@@ -1,0 +1,528 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Translator Chat</title>
+<style>
+:root{--navy:#0b2940;--pale:#eef5ff;--line:#dfe6ee;--muted:#7b8794;--danger:#b42318}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Arial;color:#17212b;background:#fff}
+header{background:var(--navy);color:#fff;padding:22px 5%;font-weight:800;font-size:22px}
+.wrap{max-width:720px;margin:auto;padding:28px 20px}
+.card{border:1px solid var(--line);border-radius:20px;padding:18px;margin:14px 0}
+.btn{border:0;border-radius:14px;padding:14px 18px;font-weight:750;font-size:16px;cursor:pointer}
+.primary{background:var(--navy);color:#fff}
+.secondary{background:var(--pale);color:var(--navy)}
+input,select{width:100%;padding:14px;border:1px solid var(--line);border-radius:13px;font-size:16px;margin:6px 0 14px;background:#fff}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.hidden{display:none!important}
+.msgs{height:54vh;overflow:auto;padding-bottom:90px}
+.msg{max-width:88%;background:#f3f6f9;border-radius:18px;padding:15px;margin:12px 0}
+.mine{margin-left:auto;background:#eaf3ff}
+.sender{font-weight:800;margin-bottom:8px}
+.lang{font-size:12px;color:#1767aa;font-weight:800;margin-top:10px}
+.txt{font-size:17px;line-height:1.45}
+.trans{border-top:1px solid var(--line);padding-top:9px;margin-top:9px}
+.composer{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 0;display:flex;gap:8px}
+.composer input{margin:0}
+.status{color:var(--muted);font-size:13px}
+.toprow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.error{background:#fff0f0;color:#9b1c1c;padding:10px;border-radius:10px;margin:10px 0}
+.navrow{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+.iconbtn{border:0;background:var(--pale);color:var(--navy);border-radius:12px;min-width:44px;height:44px;font-size:20px;font-weight:800;cursor:pointer}
+.roomcard{cursor:pointer}
+.roomcard:hover{background:#fafcff}
+.roomtitle{font-size:17px;font-weight:800}
+.translation-card{background:#f8fafc}
+.translation-summary{font-weight:800;color:var(--navy);margin-bottom:10px}
+.smallbtn{padding:10px 12px;font-size:14px}
+.danger{color:var(--danger)}.dangerbtn{background:#fff0f0;color:#b42318;border:1px solid #f5c2c0}
+</style>
+</head>
+<body>
+<header>Translator Chat</header>
+<main class="wrap">
+
+<section id="home">
+  <h1>Chat without language barriers.</h1>
+  <p class="status">Real translation MVP</p>
+  <button class="btn primary" onclick="show('create')">Create a Room</button>
+  <button class="btn secondary" onclick="show('join')">Join a Room</button>
+
+  <div id="recentSection" class="hidden" style="margin-top:28px">
+    <h2>Recent Rooms</h2>
+    <div id="recentRoomsList"></div>
+  </div>
+</section>
+
+<section id="create" class="hidden">
+  <div class="navrow"><button class="iconbtn" onclick="goHome()" title="Home">⌂</button></div>
+  <h2>Create New Room</h2>
+  <label>Owner name</label><input id="ownerName" placeholder="Your name" value="">
+  <label>Room name</label><input id="roomName" value="Patient Consultation">
+  <label>Your language</label><select id="src"></select>
+  <label>Second language</label><select id="second"></select>
+  <label>Third language (optional)</label><select id="third"></select>
+  <button class="btn primary" onclick="createRoom()">Create Room</button>
+</section>
+
+<section id="join" class="hidden">
+  <div class="navrow"><button class="iconbtn" onclick="goHome()" title="Home">⌂</button></div>
+  <h2>Join a Room</h2>
+  <label>Room ID</label><input id="joinId" placeholder="839-521">
+  <label>Your name</label><input id="joinName" placeholder="Participant">
+  <button class="btn primary" onclick="joinRoom()">Request to Join</button>
+  <div id="joinStatus" class="status"></div>
+</section>
+
+<section id="created" class="hidden">
+  <div class="navrow"><button class="iconbtn" onclick="goHome()" title="Home">⌂</button></div>
+  <h2>Room created</h2>
+  <div class="card">
+    <div id="createdName"></div>
+    <h1 id="createdId"></h1>
+    <div class="row">
+      <button class="btn secondary" onclick="copyId()">Copy ID</button>
+      <button class="btn secondary" onclick="shareRoom()">Share link</button>
+    </div>
+  </div>
+  <button class="btn primary" onclick="openRoom()">Open Chat Room</button>
+</section>
+
+<section id="chat" class="hidden">
+  <div class="navrow">
+    <button class="iconbtn" onclick="goHome()" title="Home">⌂</button>
+    <button class="iconbtn" onclick="goHome()" title="Back">←</button>
+  </div>
+
+  <div class="toprow">
+    <div>
+      <h2 id="chatName" style="margin-bottom:2px"></h2>
+      <div id="chatMeta" class="status"></div>
+    </div>
+    <button class="btn secondary" onclick="shareRoom()">Share</button>
+  </div>
+
+  <div class="card translation-card">
+    <div class="translation-summary" id="translationSummary"></div>
+    <label>Source language</label>
+    <select id="chatSrc" onchange="applyChatLanguages()"></select>
+    <label>Second language</label>
+    <select id="chatSecond" onchange="applyChatLanguages()"></select>
+    <label>Third language (optional)</label>
+    <select id="chatThird" onchange="applyChatLanguages()"></select>
+    <div class="status">New language choices apply to new messages. Existing messages keep their translations.</div>
+  </div>
+
+  <div id="ownerPanel" class="card hidden">
+    <b>Join requests</b>
+    <div id="requests"></div>
+  </div>
+
+  <div id="error"></div>
+  <div id="messages" class="msgs"></div>
+
+  <div class="composer">
+    <input id="message" autocomplete="off" placeholder="Type a message..." onkeydown="if(event.key==='Enter')send()">
+    <button class="btn primary" onclick="send()">➤</button>
+  </div>
+</section>
+
+</main>
+
+<script>
+const LANGS=["English","Thai","Arabic","Turkish","Bengali","Burmese","Chinese","Russian","French","Italian"];
+let state={
+  roomId:null,ownerToken:null,participantToken:null,
+  senderName:"You",isOwner:false,
+  src:"English",second:"Thai",third:"None"
+};
+let refreshTimer=null;
+let joinTimer=null;
+
+function byId(id){ return document.getElementById(id); }
+
+function fillSelect(id,allowNone=false){
+  const e=byId(id);
+  e.innerHTML=(allowNone?'<option>None</option>':'')+LANGS.map(x=>`<option>${x}</option>`).join("");
+}
+function fillLanguageDropdowns(){
+  fillSelect("src"); fillSelect("second"); fillSelect("third",true);
+  fillSelect("chatSrc"); fillSelect("chatSecond"); fillSelect("chatThird",true);
+  byId("src").value="English";
+  byId("second").value="Thai";
+  byId("third").value="None";
+}
+fillLanguageDropdowns();
+
+function show(id){
+  document.querySelectorAll("main section").forEach(x=>x.classList.add("hidden"));
+  const target=byId(id);
+  if(target) target.classList.remove("hidden");
+  if(id==="home") renderRecentRooms();
+}
+
+function goHome(){
+  clearInterval(refreshTimer);
+  show("home");
+}
+
+function getRecentRooms(){
+  try{
+    return JSON.parse(localStorage.getItem("linguaroom_recent_rooms_v3")||"[]");
+  }catch(e){ return []; }
+}
+function setRecentRooms(list){
+  localStorage.setItem("linguaroom_recent_rooms_v3",JSON.stringify(list.slice(0,20)));
+}
+function saveCurrentRoom(name){
+  if(!state.roomId) return;
+  const entry={
+    roomId:state.roomId,
+    roomName:name||state.roomId,
+    ownerToken:state.ownerToken||null,
+    participantToken:state.participantToken||null,
+    senderName:state.senderName||"You",
+    isOwner:!!state.isOwner,
+    src:state.src,
+    second:state.second,
+    third:state.third,
+    lastOpened:Date.now()
+  };
+  const list=getRecentRooms().filter(r=>r.roomId!==state.roomId);
+  list.unshift(entry);
+  setRecentRooms(list);
+}
+function renderRecentRooms(){
+  const list=getRecentRooms();
+  const section=byId("recentSection");
+  const holder=byId("recentRoomsList");
+  if(!list.length){
+    section.classList.add("hidden");
+    holder.innerHTML="";
+    return;
+  }
+  section.classList.remove("hidden");
+  holder.innerHTML=list.map(r=>`
+    <div class="card roomcard">
+      <div class="toprow">
+        <div>
+          <div class="roomtitle">${esc(r.roomName||"Room")}</div>
+          <div class="status">Room ${esc(r.roomId)}</div>
+        </div>
+        <div class="status">${esc(r.src||"English")} → ${esc(r.second||"Thai")}${r.third&&r.third!=="None"?" + "+esc(r.third):""}</div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn secondary smallbtn" onclick="reopenRoom('${r.roomId}')">Open room →</button>
+        ${r.isOwner && r.ownerToken ? `<button class="btn dangerbtn smallbtn" onclick="deleteRecentRoom('${r.roomId}')">Delete</button>` : ""}
+      </div>
+    </div>
+  `).join("");
+}
+
+
+async function deleteRecentRoom(roomId){
+  const saved=getRecentRooms().find(r=>r.roomId===roomId);
+  if(!saved || !saved.isOwner || !saved.ownerToken){
+    alert("Only the room owner can delete this room.");
+    return;
+  }
+
+  const ok=confirm(`Delete "${saved.roomName || roomId}" permanently?\n\nThis cannot be undone.`);
+  if(!ok) return;
+
+  try{
+    await api(`/api/rooms/${roomId}`,{
+      method:"DELETE",
+      body:JSON.stringify({ownerToken:saved.ownerToken})
+    });
+
+    setRecentRooms(getRecentRooms().filter(r=>r.roomId!==roomId));
+
+    if(state.roomId===roomId){
+      clearInterval(refreshTimer);
+      state={
+        roomId:null,ownerToken:null,participantToken:null,
+        senderName:"You",isOwner:false,
+        src:"English",second:"Thai",third:"None"
+      };
+    }
+
+    renderRecentRooms();
+    alert("Room deleted.");
+  }catch(e){
+    if(String(e.message||"").toLowerCase().includes("room not found")){
+      setRecentRooms(getRecentRooms().filter(r=>r.roomId!==roomId));
+      renderRecentRooms();
+      alert("This room no longer exists. It has been removed from Recent Rooms.");
+      return;
+    }
+    alert(e.message || "Unable to delete room.");
+  }
+}
+
+async function reopenRoom(roomId){
+  const saved=getRecentRooms().find(r=>r.roomId===roomId);
+  if(!saved) return;
+
+  state={
+    roomId:saved.roomId,
+    ownerToken:saved.ownerToken||null,
+    participantToken:saved.participantToken||null,
+    senderName:saved.senderName||"You",
+    isOwner:!!saved.isOwner,
+    src:saved.src||"English",
+    second:saved.second||"Thai",
+    third:saved.third||"None"
+  };
+
+  try{
+    await openRoom();
+  }catch(e){
+    if(String(e.message||"").toLowerCase().includes("room not found")){
+      setRecentRooms(getRecentRooms().filter(r=>r.roomId!==roomId));
+      renderRecentRooms();
+      state={
+        roomId:null,ownerToken:null,participantToken:null,
+        senderName:"You",isOwner:false,
+        src:"English",second:"Thai",third:"None"
+      };
+      alert("This room no longer exists and has been removed from Recent Rooms.");
+      show("home");
+      return;
+    }
+    alert(e.message || "Unable to open room.");
+  }
+}
+
+async function createRoom(){
+  state.src=byId("src").value;
+  state.second=byId("second").value;
+  state.third=byId("third").value;
+
+  const ownerName=(byId("ownerName").value.trim() || "Owner");
+
+  const r=await api("/api/rooms",{
+    method:"POST",
+    body:JSON.stringify({
+      name:byId("roomName").value,
+      ownerName,
+      sourceLanguage:state.src,
+      secondLanguage:state.second,
+      thirdLanguage:state.third
+    })
+  });
+
+  state.roomId=r.roomId;
+  state.ownerToken=r.ownerToken;
+  state.participantToken=null;
+  state.isOwner=true;
+  state.senderName=ownerName;
+
+  byId("createdName").textContent=r.roomName;
+  byId("createdId").textContent=r.roomId;
+  saveCurrentRoom(r.roomName);
+  show("created");
+}
+
+async function joinRoom(){
+  const roomId=byId("joinId").value.trim();
+  const name=byId("joinName").value.trim()||"Participant";
+  const r=await api(`/api/rooms/${roomId}/join`,{
+    method:"POST",
+    body:JSON.stringify({name})
+  });
+
+  state.roomId=roomId;
+  state.senderName=name;
+  state.participantToken=r.participantToken;
+  state.ownerToken=null;
+  state.isOwner=false;
+
+  byId("joinStatus").textContent="Waiting for owner approval…";
+  clearInterval(joinTimer);
+  joinTimer=setInterval(checkJoin,1500);
+}
+
+async function checkJoin(){
+  if(!state.roomId) return;
+  const r=await api(`/api/rooms/${state.roomId}`);
+  const q=r.requests.find(x=>x.participantToken===state.participantToken);
+  if(q?.status==="approved"){
+    clearInterval(joinTimer);
+    state.src=r.languages.sourceLanguage;
+    state.second=r.languages.secondLanguage;
+    state.third=r.languages.thirdLanguage;
+    saveCurrentRoom(r.name);
+    await openRoom();
+  }
+}
+
+function syncChatLanguageDropdowns(){
+  byId("chatSrc").value=state.src;
+  byId("chatSecond").value=state.second;
+  byId("chatThird").value=state.third;
+  updateTranslationSummary();
+}
+function updateTranslationSummary(){
+  byId("translationSummary").textContent=
+    `${state.src} → ${state.second}${state.third!=="None"?" + "+state.third:""}`;
+}
+function applyChatLanguages(){
+  state.src=byId("chatSrc").value;
+  state.second=byId("chatSecond").value;
+  state.third=byId("chatThird").value;
+  updateTranslationSummary();
+  saveCurrentRoom(byId("chatName").textContent);
+}
+
+async function openRoom(){
+  show("chat");
+  syncChatLanguageDropdowns();
+  await refresh();
+  saveCurrentRoom(byId("chatName").textContent);
+  clearInterval(refreshTimer);
+  refreshTimer=setInterval(()=> {
+    if(!byId("chat").classList.contains("hidden")) refresh();
+  },1500);
+}
+
+async function refresh(){
+  if(!state.roomId) return;
+  const r=await api(`/api/rooms/${state.roomId}`);
+
+  byId("chatName").textContent=r.name;
+  byId("chatMeta").textContent=`Room ${r.id} · ${r.participants.length} participant(s)`;
+  const delBtn=byId("deleteRoomBtn"); if(delBtn) delBtn.classList.toggle("hidden", !state.isOwner);
+  renderMessages(r.messages);
+  saveCurrentRoom(r.name);
+
+  if(state.isOwner){
+    const op=byId("ownerPanel"); if(op) op.classList.remove("hidden");
+    byId("requests").innerHTML=
+      r.requests.filter(x=>x.status==="pending").map(x=>
+        `<div class="toprow" style="margin-top:10px"><span>${esc(x.name)}</span><button class="btn secondary" onclick="approve('${x.requestId}')">Approve</button></div>`
+      ).join("") || '<div class="status">No pending requests</div>';
+  }else{
+    const op=byId("ownerPanel"); if(op) op.classList.add("hidden");
+  }
+}
+
+
+async function deleteCurrentRoom(){
+  if(!state.isOwner || !state.ownerToken){
+    alert("Only the room owner can delete this room.");
+    return;
+  }
+
+  const ok = confirm(`Delete "${byId("chatName").textContent}" permanently?\n\nThis cannot be undone.`);
+  if(!ok) return;
+
+  try{
+    await api(`/api/rooms/${state.roomId}`,{
+      method:"DELETE",
+      body:JSON.stringify({ownerToken:state.ownerToken})
+    });
+
+    const remaining=getRecentRooms().filter(r=>r.roomId!==state.roomId);
+    setRecentRooms(remaining);
+
+    clearInterval(refreshTimer);
+    state={
+      roomId:null,ownerToken:null,participantToken:null,
+      senderName:"You",isOwner:false,
+      src:"English",second:"Thai",third:"None"
+    };
+
+    alert("Room deleted.");
+    goHome();
+  }catch(e){
+    alert(e.message || "Unable to delete room.");
+  }
+}
+
+async function approve(requestId){
+  await api(`/api/rooms/${state.roomId}/approve`,{
+    method:"POST",
+    body:JSON.stringify({ownerToken:state.ownerToken,requestId})
+  });
+  refresh();
+}
+
+function renderMessages(ms){
+  byId("messages").innerHTML=ms.map(m=>`
+    <div class="msg ${m.senderName===state.senderName?"mine":""}">
+      <div class="sender">${esc(m.senderName)}</div>
+      <div class="lang">Original · ${esc(m.sourceLanguage)}</div>
+      <div class="txt">${esc(m.text)}</div>
+      ${Object.entries(m.translations).map(([l,t])=>`
+        <div class="trans">
+          <div class="lang">${esc(l)}</div>
+          <div class="txt">${esc(t)}</div>
+        </div>`).join("")}
+    </div>
+  `).join("");
+  byId("messages").scrollTop=byId("messages").scrollHeight;
+}
+
+async function send(){
+  const text=byId("message").value.trim();
+  if(!text) return;
+  byId("message").value="";
+  byId("error").innerHTML="";
+
+  try{
+    await api(`/api/rooms/${state.roomId}/messages`,{
+      method:"POST",
+      body:JSON.stringify({
+        senderName:state.senderName,
+        text,
+        sourceLanguage:state.src,
+        secondLanguage:state.second,
+        thirdLanguage:state.third
+      })
+    });
+    await refresh();
+  }catch(e){
+    byId("error").innerHTML=`<div class="error">${esc(e.message)}</div>`;
+  }
+}
+
+function link(){
+  return `${location.origin}${location.pathname}?room=${encodeURIComponent(state.roomId)}`;
+}
+function copyId(){
+  navigator.clipboard?.writeText(state.roomId);
+}
+async function shareRoom(){
+  const url=link();
+  if(navigator.share){
+    try{
+      return await navigator.share({title:"Translator Chat",text:`Join room ${state.roomId}`,url});
+    }catch(e){}
+  }
+  navigator.clipboard?.writeText(url);
+  alert("Join link copied");
+}
+
+async function api(url,opt={}){
+  opt.headers={"Content-Type":"application/json",...(opt.headers||{})};
+  const r=await fetch(url,opt);
+  const j=await r.json();
+  if(!r.ok) throw new Error(j.error||"Request failed");
+  return j;
+}
+
+function esc(s){
+  return String(s??"").replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+renderRecentRooms();
+const q=new URLSearchParams(location.search).get("room");
+if(q){ byId("joinId").value=q; show("join"); }
+</script>
+</body>
+</html>
