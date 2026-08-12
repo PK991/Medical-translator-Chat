@@ -48,9 +48,43 @@ async function translate(text, sourceLanguage, targets){
     throw new Error(`Translation API error ${response.status}: ${err}`);
   }
   const data = await response.json();
-  const out = data.output_text;
-  if(!out) throw new Error("No translation returned.");
-  return JSON.parse(out);
+
+if (data.status === "incomplete") {
+  throw new Error(
+    `Translation incomplete: ${data.incomplete_details?.reason || "unknown reason"}`
+  );
+}
+
+const message = data.output?.find(
+  item => item.type === "message"
+);
+
+if (!message) {
+  throw new Error("No message returned from translation API.");
+}
+
+const content = message.content?.find(
+  item => item.type === "output_text"
+);
+
+if (!content?.text) {
+  const refusal = message.content?.find(
+    item => item.type === "refusal"
+  );
+
+  if (refusal?.refusal) {
+    throw new Error("Translation request was refused.");
+  }
+
+  console.error(
+    "Unexpected OpenAI response:",
+    JSON.stringify(data, null, 2)
+  );
+
+  throw new Error("No translation text returned.");
+}
+
+return JSON.parse(content.text);
 }
 
 app.post("/api/rooms", (req,res)=>{
